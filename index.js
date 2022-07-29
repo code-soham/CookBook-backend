@@ -74,7 +74,12 @@ app.post("/recipe", async (req, res) => {
     } else {
       res.status(200).json({ recipe });
     }
-  });
+  })
+    .clone()
+    .catch((err) => {
+      res.status(500).json({ message: "Internal Server Error" });
+      console.log(err);
+    });
 });
 //add Image to DB
 app.post("/addImage", upload.single("image"), async (req, res) => {
@@ -105,7 +110,7 @@ app.post("/removeImage", async (req, res) => {
 });
 //add new recipe
 app.post("/addRecipe", async (req, res) => {
-  const { name, ingredients,description, steps, images, userId } = req.body;
+  const { name, ingredients, description, steps, images, userId } = req.body;
   const recipe = new Recipe({
     name: name,
     ingredients: ingredients,
@@ -125,12 +130,12 @@ app.post("/addRecipe", async (req, res) => {
 });
 //save edited recipe
 app.post("/editRecipe", async (req, res) => {
-  console.log(req.body)
+  console.log(req.body);
   const { name, description, ingredients, steps, images, _id } = req.body;
   const recipe = await Recipe.findOne({ _id: _id });
-  console.log(images)
-  recipe.images=[];
-  if (recipe !==null) {
+  console.log(images);
+  recipe.images = [];
+  if (recipe !== null) {
     recipe.name = name;
     recipe.ingredients = ingredients;
     recipe.steps = steps;
@@ -139,7 +144,7 @@ app.post("/editRecipe", async (req, res) => {
     recipe
       .save()
       .then((recipe) => {
-        res.status(200).json({ message: "Recipe edited", id:recipe._id });
+        res.status(200).json({ message: "Recipe edited", id: recipe._id });
       })
       .catch((err) => {
         console.log(err);
