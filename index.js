@@ -3,9 +3,10 @@ require("dotenv").config();
 require("./db/dbconfig");
 var cors = require("cors");
 const bcrypt = require("bcrypt");
+const cloudinary = require("./utils/cloudinary");
+const upload = require("./utils/multer");
 const User = require("./models/user");
 const Recipe = require("./models/recipe");
-const Image = require("./models/image");
 const saltRounds = 10;
 const app = express();
 app.use(express.json());
@@ -24,7 +25,7 @@ app.post("/auth", (req, res) => {
       } else {
         bcrypt.compare(password, user.password, (err, result) => {
           if (result) {
-            res.status(200).json({ message: "User authenticated" });
+            res.status(200).json({ message: "User authenticated", uid: user });
           } else {
             res.status(400).json({ message: "Incorrect password" });
           }
@@ -58,31 +59,60 @@ app.post("/register", async (req, res) => {
     res.status(400).json({ message: "User already exists" });
   }
 });
-//add Image to DB
-app.post("/addImage", async (req, res) => {
-  const { image } = req.body;
-  const imageData = new Image({
-    image: image,
+//get my recipes
+app.post("/myrecipes", async (req, res) => {
+  const { uid } = req.body;
+  const recipes = await Recipe.find({ userId: uid });
+  res.status(200).json({ recipes: recipes });
+});
+app.post("/recipe", async (req, res) => {
+  const { id } = req.body;
+  const recipe = await Recipe.findById(id, function (err, recipe) {
+    if (err) {
+      res.status(500).json({ message: "Internal Server Error" });
+      console.log(err);
+    } else {
+      res.status(200).json({ recipe });
+    }
   });
-  imageData
-
-    .save()
-    .then((image) => {
-      res.status(200).json({ message: "Image added", id: image._id });
-    })
-    .catch((err) => {
-      res.status(500).json({ message: "Internal server error",err });
+});
+//add Image to DB
+app.post("/addImage", upload.single("image"), async (req, res) => {
+  // console.log(req);
+  try {
+    const result = await cloudinary.uploader.upload(req.file.path);
+    res.status(200).json({
+      message: "Image uploaded",
+      url: result.secure_url,
+      cloudinary_id: result.public_id,
+      version: result.version,
     });
+  } catch (err) {
+    res.status(500).json({ message: "Internal server error" });
+    console.log(err);
+  }
+});
+//remove Image from DB
+app.post("/removeImage", async (req, res) => {
+  const { cloudinary_id } = req.body;
+  cloudinary.uploader.destroy(cloudinary_id, (err, result) => {
+    if (err) {
+      res.status(500).json({ message: "Internal server error" });
+    } else {
+      res.status(200).json({ message: "Image removed" });
+    }
+  });
 });
 //add new recipe
 app.post("/addRecipe", async (req, res) => {
-  const { name, ingredients, steps, images, userId } = req.body;
+  const { name, ingredients,description, steps, images, userId } = req.body;
   const recipe = new Recipe({
     name: name,
     ingredients: ingredients,
     steps: steps,
     images: images,
     userId: userId,
+    description: description,
   });
   recipe
     .save()
@@ -95,19 +125,24 @@ app.post("/addRecipe", async (req, res) => {
 });
 //save edited recipe
 app.post("/editRecipe", async (req, res) => {
-  const { name, ingredients, steps, images, id } = req.body;
-  const recipe = await Recipe.findOne({ _id: id });
-  if (recipe) {
+  console.log(req.body)
+  const { name, description, ingredients, steps, images, _id } = req.body;
+  const recipe = await Recipe.findOne({ _id: _id });
+  console.log(images)
+  recipe.images=[];
+  if (recipe !==null) {
     recipe.name = name;
     recipe.ingredients = ingredients;
     recipe.steps = steps;
     recipe.images = images;
+    recipe.description = description;
     recipe
       .save()
       .then((recipe) => {
-        res.status(200).json({ message: "Recipe edited" });
+        res.status(200).json({ message: "Recipe edited", id:recipe._id });
       })
       .catch((err) => {
+        console.log(err);
         res.status(500).json({ message: "Internal server error", err });
       });
   } else {
@@ -120,17 +155,8 @@ app.post("/fetchList", async (req, res) => {
     $text: { $search: req.body.search },
   })
     .then((list) => {
+      console.log(list);
       res.status(200).json(list);
-    })
-    .catch((err) => {
-      res.status(500).json({ message: "Internal server error", err });
-    });
-});
-app.post("/fetchImage", async (req, res) => {
-  const { id } = req.body;
-  Image.findById(id)
-    .then((data) => {
-      res.status(200).json({ message: "Recipe fetched", data });
     })
     .catch((err) => {
       res.status(500).json({ message: "Internal server error", err });
