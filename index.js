@@ -67,19 +67,23 @@ app.post("/myrecipes", async (req, res) => {
 });
 app.post("/recipe", async (req, res) => {
   const { id } = req.body;
-  const recipe = await Recipe.findById(id, function (err, recipe) {
-    if (err) {
-      res.status(500).json({ message: "Internal Server Error" });
-      console.log(err);
-    } else {
-      res.status(200).json({ recipe });
-    }
-  })
-    .clone()
-    .catch((err) => {
-      res.status(500).json({ message: "Internal Server Error" });
-      console.log(err);
-    });
+  try {
+    const recipe = await Recipe.findById(id, function (err, recipe) {
+      if (err) {
+        res.status(500).json({ message: "Internal Server Error" });
+        console.log(err);
+      } else {
+        res.status(200).json({ recipe });
+      }
+    })
+      .clone()
+      .catch((err) => {
+        res.status(500).json({ message: "Internal Server Error" });
+        console.log(err);
+      });
+  } catch (err) {
+    console.log(err);
+  }
 });
 //add Image to DB
 app.post("/addImage", upload.single("image"), async (req, res) => {
